@@ -1,0 +1,15 @@
+<resources>
+    <string name="app_name">BackTalk</string>
+    <string name="tagline">Say it. Flip it. Guess it.</string>
+    <string name="action_new_game">New Game</string>
+    <string name="action_word_packs">Word Packs</string>
+    <string name="action_daily_challenge">Daily Challenge</string>
+    <string name="action_rerecord">Re-record</string>
+    <string name="action_pass_to_friend">Pass to Friend</string>
+    <string name="action_submit_guess">Submit Guess</string>
+    <string name="action_skip">Skip</string>
+    <string name="action_next_round">Next Round</string>
+    <string name="action_play_again">Play Again</string>
+    <string name="action_share">Share Result</string>
+    <string name="action_add_custom_word">Add Custom Word</string>
+</resources>

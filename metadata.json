@@ -1,0 +1,6 @@
+{
+  "name": "BackTalk",
+  "description": "Social audio-reverse guessing party game with on-device Gemini Nano scoring.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
