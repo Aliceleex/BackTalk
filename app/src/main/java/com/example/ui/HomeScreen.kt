@@ -107,7 +107,7 @@ fun HomeScreen(
                                     color = MaterialTheme.colorScheme.onBackground
                                 )
                                 Text(
-                                    text = "Say it. Flip it. Guess it.",
+                                    text = "Hear it backwards. Mimic it. Guess it!",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -193,7 +193,7 @@ fun HomeScreen(
                                         color = PureWhite
                                     )
                                     Text(
-                                        text = "Record a word, flip the audio backwards, and challenge a friend to decode it.",
+                                        text = "Hear a word backwards, mimic the reverse sound, and see if a friend can guess the real word!",
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = PureWhite.copy(alpha = 0.78f)
                                     )
@@ -454,7 +454,7 @@ fun HomeScreen(
                                             color = MaterialTheme.colorScheme.onSurface
                                         )
                                         Text(
-                                            text = "Tap New Game to record your first reversed clip.",
+                                            text = "Tap New Game to hear a backwards word and mimic it.",
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )

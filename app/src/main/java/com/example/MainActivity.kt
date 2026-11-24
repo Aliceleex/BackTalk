@@ -132,6 +132,7 @@ fun BackTalkApp(viewModel: BackTalkViewModel = viewModel()) {
                 ) {
                     RecordScreen(
                         state = state,
+                        onPlayBackwardsGuide = viewModel::playBackwardsWordGuide,
                         onStartRecording = viewModel::startRecording,
                         onStopRecordingEarly = viewModel::stopRecordingEarly,
                         onReplayReversedPreview = viewModel::replayRecordedReversedPreview,

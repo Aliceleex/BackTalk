@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.audio.AudioRecorder
+import com.example.audio.WordAudioSynthesizer
 import com.example.audio.extractWaveformAmplitudes
 import com.example.audio.reverseAudio
 import com.example.gemini.EvaluatedGuess
@@ -33,6 +34,7 @@ class BackTalkViewModel(application: Application) : AndroidViewModel(application
         customWordDao = database.customWordDao()
     )
     private val audioRecorder = AudioRecorder(application)
+    private val wordAudioSynthesizer = WordAudioSynthesizer(application)
     private val guessChecker = GuessChecker()
 
     val wordPacks: StateFlow<List<WordPack>> = repository.wordPacksFlow
@@ -68,6 +70,7 @@ class BackTalkViewModel(application: Application) : AndroidViewModel(application
 
     private var activeRecordingJob: Job? = null
     private var activePlaybackJob: Job? = null
+    private var activeGuideJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -140,16 +143,19 @@ class BackTalkViewModel(application: Application) : AndroidViewModel(application
             recordedClips.clear()
             completedSummaries.clear()
 
+            val firstWord = words.firstOrNull() ?: "pizza"
             _gameState.value = GameState.Recording(
                 roundIndex = 0,
                 totalRounds = words.size,
-                word = words.firstOrNull() ?: "pizza",
+                word = firstWord,
                 packId = resolvedId,
                 packName = packName,
+                isPreparingGuide = true,
                 isDailyChallenge = false,
                 recorderLabel = recorderPlayer,
                 guesserLabel = guesserPlayer
             )
+            prepareAndPlayBackwardsGuide(roundIndex = 0, word = firstWord)
         }
     }
 
@@ -174,10 +180,75 @@ class BackTalkViewModel(application: Application) : AndroidViewModel(application
             word = dailyWord,
             packId = 0L,
             packName = "Daily Challenge",
+            isPreparingGuide = true,
             isDailyChallenge = true,
             recorderLabel = recorderPlayer,
             guesserLabel = guesserPlayer
         )
+        prepareAndPlayBackwardsGuide(roundIndex = 0, word = dailyWord)
+    }
+
+    private fun prepareAndPlayBackwardsGuide(roundIndex: Int, word: String) {
+        activeGuideJob?.cancel()
+        activeGuideJob = viewModelScope.launch {
+            val synthesized = wordAudioSynthesizer.synthesizeReversedWord(word)
+            val latest = _gameState.value as? GameState.Recording ?: return@launch
+            if (latest.roundIndex != roundIndex || latest.isRecording) return@launch
+
+            if (synthesized == null) {
+                _gameState.value = latest.copy(
+                    isPreparingGuide = false,
+                    guideUnavailable = true
+                )
+            } else {
+                _gameState.value = latest.copy(
+                    isPreparingGuide = false,
+                    guideReversedPcm = synthesized.reversedPcm,
+                    guideAmplitudes = synthesized.reversedAmplitudes,
+                    guideUnavailable = false
+                )
+                playGuideInternal(roundIndex, synthesized.reversedPcm)
+            }
+        }
+    }
+
+    fun playBackwardsWordGuide() {
+        val current = _gameState.value as? GameState.Recording ?: return
+        if (current.isRecording) return
+        val guidePcm = current.guideReversedPcm
+        if (guidePcm == null) {
+            _gameState.value = current.copy(isPreparingGuide = true, guideUnavailable = false)
+            prepareAndPlayBackwardsGuide(current.roundIndex, current.word)
+            return
+        }
+        activePlaybackJob?.cancel()
+        audioRecorder.requestStopPlayback()
+        activePlaybackJob = viewModelScope.launch {
+            playGuideInternal(current.roundIndex, guidePcm)
+        }
+    }
+
+    private suspend fun playGuideInternal(roundIndex: Int, guidePcm: ShortArray) {
+        val stateBefore = _gameState.value as? GameState.Recording ?: return
+        if (stateBefore.roundIndex != roundIndex || stateBefore.isRecording) return
+        _gameState.value = stateBefore.copy(
+            isPlayingGuide = true,
+            isPlayingPreview = false,
+            playbackProgress = 0f
+        )
+        try {
+            audioRecorder.playPcm(guidePcm) { progress ->
+                val latest = _gameState.value as? GameState.Recording
+                if (latest != null && latest.isPlayingGuide && latest.roundIndex == roundIndex) {
+                    _gameState.value = latest.copy(playbackProgress = progress)
+                }
+            }
+        } finally {
+            val latest = _gameState.value as? GameState.Recording
+            if (latest != null && latest.roundIndex == roundIndex) {
+                _gameState.value = latest.copy(isPlayingGuide = false, playbackProgress = 0f)
+            }
+        }
     }
 
     /**
@@ -192,6 +263,7 @@ class BackTalkViewModel(application: Application) : AndroidViewModel(application
         activeRecordingJob = viewModelScope.launch {
             val liveBars = MutableList(36) { 0.08f }
             _gameState.value = current.copy(
+                isPlayingGuide = false,
                 isRecording = true,
                 elapsedMs = 0L,
                 amplitudes = liveBars.toList(),
@@ -278,7 +350,11 @@ class BackTalkViewModel(application: Application) : AndroidViewModel(application
 
     private suspend fun playPreviewReversedInternal(reversed: ShortArray) {
         val stateBefore = _gameState.value as? GameState.Recording ?: return
-        _gameState.value = stateBefore.copy(isPlayingPreview = true, playbackProgress = 0f)
+        _gameState.value = stateBefore.copy(
+            isPlayingPreview = true,
+            isPlayingGuide = false,
+            playbackProgress = 0f
+        )
         try {
             audioRecorder.playPcm(reversed) { progress ->
                 val latest = _gameState.value as? GameState.Recording
@@ -298,6 +374,7 @@ class BackTalkViewModel(application: Application) : AndroidViewModel(application
         val current = _gameState.value as? GameState.Recording ?: return
         stopAudioJobs()
         _gameState.value = current.copy(
+            isPlayingGuide = false,
             isRecording = false,
             elapsedMs = 0L,
             amplitudes = emptyList(),
@@ -326,6 +403,7 @@ class BackTalkViewModel(application: Application) : AndroidViewModel(application
                 packId = current.packId,
                 originalPcm = original,
                 reversedPcm = reversed,
+                guideReversedPcm = current.guideReversedPcm,
                 reversedAudioPath = current.reversedAudioPath,
                 amplitudes = current.amplitudes
             )
@@ -333,16 +411,19 @@ class BackTalkViewModel(application: Application) : AndroidViewModel(application
 
         val nextIdx = current.roundIndex + 1
         if (!passImmediately && nextIdx < sessionWords.size) {
+            val nextWord = sessionWords[nextIdx]
             _gameState.value = GameState.Recording(
                 roundIndex = nextIdx,
                 totalRounds = sessionWords.size,
-                word = sessionWords[nextIdx],
+                word = nextWord,
                 packId = sessionPackId,
                 packName = sessionPackName,
+                isPreparingGuide = true,
                 isDailyChallenge = sessionIsDaily,
                 recorderLabel = recorderPlayer,
                 guesserLabel = guesserPlayer
             )
+            prepareAndPlayBackwardsGuide(roundIndex = nextIdx, word = nextWord)
         } else {
             _gameState.value = GameState.PassDevice(
                 recordedRoundsCount = recordedClips.size,
@@ -490,26 +571,32 @@ class BackTalkViewModel(application: Application) : AndroidViewModel(application
             score = evaluation.score,
             reason = evaluation.reason,
             usedGeminiNano = evaluation.usedGeminiNano,
+            hasGuideAudio = clip.guideReversedPcm != null,
             amplitudes = clip.amplitudes,
             isDailyChallenge = sessionIsDaily,
             guesserLabel = guesserPlayer
         )
 
-        // Automatically play reversed audio on reveal screen so everyone can compare!
-        playResultAudio(reversed = true)
+        // Automatically play flipped recording (what Player B guessed from) on reveal screen
+        playResultAudio(ResultAudioMode.FLIPPED_FORWARD)
     }
 
-    fun playResultAudio(reversed: Boolean) {
+    fun playResultAudio(mode: ResultAudioMode) {
         val current = _gameState.value as? GameState.RoundResult ?: return
         val clip = recordedClips.getOrNull(current.roundIndex) ?: return
+        val pcm = when (mode) {
+            ResultAudioMode.FLIPPED_FORWARD -> clip.reversedPcm
+            ResultAudioMode.RAW_MIMIC -> clip.originalPcm
+            ResultAudioMode.TARGET_BACKWARDS -> clip.guideReversedPcm ?: return
+        }
         activePlaybackJob?.cancel()
         activePlaybackJob = viewModelScope.launch {
             _gameState.value = current.copy(
-                isPlayingReversed = reversed,
-                isPlayingOriginal = !reversed,
+                isPlayingReversed = mode == ResultAudioMode.FLIPPED_FORWARD,
+                isPlayingOriginal = mode == ResultAudioMode.RAW_MIMIC,
+                isPlayingGuide = mode == ResultAudioMode.TARGET_BACKWARDS,
                 playbackProgress = 0f
             )
-            val pcm = if (reversed) clip.reversedPcm else clip.originalPcm
             try {
                 audioRecorder.playPcm(pcm) { progress ->
                     val latest = _gameState.value as? GameState.RoundResult
@@ -523,6 +610,7 @@ class BackTalkViewModel(application: Application) : AndroidViewModel(application
                     _gameState.value = latest.copy(
                         isPlayingReversed = false,
                         isPlayingOriginal = false,
+                        isPlayingGuide = false,
                         playbackProgress = 0f
                     )
                 }
@@ -572,13 +660,22 @@ class BackTalkViewModel(application: Application) : AndroidViewModel(application
         audioRecorder.requestStopPlayback()
         activeRecordingJob?.cancel()
         activePlaybackJob?.cancel()
+        activeGuideJob?.cancel()
         activeRecordingJob = null
         activePlaybackJob = null
+        activeGuideJob = null
     }
 
     override fun onCleared() {
         stopAudioJobs()
+        wordAudioSynthesizer.shutdown()
         guessChecker.close()
         super.onCleared()
     }
+}
+
+enum class ResultAudioMode {
+    FLIPPED_FORWARD,
+    RAW_MIMIC,
+    TARGET_BACKWARDS
 }

@@ -52,6 +52,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.audio.WaveformVisualizer
 import com.example.game.GameState
+import com.example.game.ResultAudioMode
 import com.example.gemini.GuessRating
 import com.example.ui.theme.VictoryGreen
 import kotlin.math.roundToInt
@@ -59,7 +60,7 @@ import kotlin.math.roundToInt
 @Composable
 fun ResultScreen(
     state: GameState.RoundResult,
-    onPlayAudio: (reversed: Boolean) -> Unit,
+    onPlayAudio: (ResultAudioMode) -> Unit,
     onNextRound: () -> Unit,
     onBackHome: () -> Unit
 ) {
@@ -161,7 +162,7 @@ fun ResultScreen(
                             WaveformVisualizer(
                                 amplitudes = state.amplitudes,
                                 height = 60.dp,
-                                isActive = state.isPlayingReversed || state.isPlayingOriginal,
+                                isActive = state.isPlayingReversed || state.isPlayingOriginal || state.isPlayingGuide,
                                 playheadProgress = state.playbackProgress
                             )
                             Row(
@@ -169,22 +170,7 @@ fun ResultScreen(
                                 horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
                                 OutlinedButton(
-                                    onClick = { onPlayAudio(true) },
-                                    shape = RoundedCornerShape(14.dp),
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(48.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Replay,
-                                        contentDescription = "Play reversed",
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Spacer(Modifier.size(6.dp))
-                                    Text("Backwards")
-                                }
-                                OutlinedButton(
-                                    onClick = { onPlayAudio(false) },
+                                    onClick = { onPlayAudio(ResultAudioMode.FLIPPED_FORWARD) },
                                     shape = RoundedCornerShape(14.dp),
                                     modifier = Modifier
                                         .weight(1f)
@@ -192,11 +178,43 @@ fun ResultScreen(
                                 ) {
                                     Icon(
                                         imageVector = Icons.Filled.PlayArrow,
-                                        contentDescription = "Play original",
+                                        contentDescription = "Play flipped voice",
                                         modifier = Modifier.size(18.dp)
                                     )
                                     Spacer(Modifier.size(6.dp))
-                                    Text("Original")
+                                    Text("Flipped")
+                                }
+                                OutlinedButton(
+                                    onClick = { onPlayAudio(ResultAudioMode.RAW_MIMIC) },
+                                    shape = RoundedCornerShape(14.dp),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(48.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Replay,
+                                        contentDescription = "Play raw mimic",
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(Modifier.size(6.dp))
+                                    Text("Your Mimic")
+                                }
+                            }
+                            if (state.hasGuideAudio) {
+                                OutlinedButton(
+                                    onClick = { onPlayAudio(ResultAudioMode.TARGET_BACKWARDS) },
+                                    shape = RoundedCornerShape(14.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(44.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Replay,
+                                        contentDescription = "Play target backwards guide",
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(Modifier.size(6.dp))
+                                    Text("Target Backwards Guide")
                                 }
                             }
                         }
@@ -275,7 +293,7 @@ fun ResultScreen(
                         OutlinedButton(
                             onClick = {
                                 val shareText =
-                                    "I guessed '${state.originalWord}' from backwards audio! 🎧 BackTalk"
+                                    "We mimicked '${state.originalWord}' backwards and guessed it! 🎧 BackTalk"
                                 val intent = Intent(Intent.ACTION_SEND).apply {
                                     type = "text/plain"
                                     putExtra(Intent.EXTRA_TEXT, shareText)

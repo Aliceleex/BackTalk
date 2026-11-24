@@ -40,7 +40,9 @@ import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -78,6 +80,7 @@ import com.example.game.GameState
 @Composable
 fun RecordScreen(
     state: GameState.Recording,
+    onPlayBackwardsGuide: () -> Unit,
     onStartRecording: () -> Unit,
     onStopRecordingEarly: () -> Unit,
     onReplayReversedPreview: () -> Unit,
@@ -183,7 +186,7 @@ fun RecordScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(20.dp)
                 ) {
-                    // Cute Rounded Word Card
+                    // Word + Backwards Guide Card
                     Card(
                         shape = RoundedCornerShape(30.dp),
                         border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline),
@@ -195,16 +198,16 @@ fun RecordScreen(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(22.dp),
+                                .padding(20.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Surface(
                                 shape = CircleShape,
                                 color = MaterialTheme.colorScheme.primaryContainer
                             ) {
                                 Text(
-                                    text = "Secret word for ${state.guesserLabel}",
+                                    text = "Step 1: Listen backwards • Step 2: Mimic it",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp)
@@ -217,19 +220,64 @@ fun RecordScreen(
                                 textAlign = TextAlign.Center
                             )
                             Text(
-                                text = "Say it clearly in 3 seconds!",
+                                text = "Hear how this word sounds backwards, then record yourself mimicking that backwards sound!",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center
                             )
+                            FilledTonalButton(
+                                onClick = onPlayBackwardsGuide,
+                                enabled = !state.isRecording && !state.isPreparingGuide,
+                                shape = RoundedCornerShape(14.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(48.dp)
+                                    .testTag("hear_backwards_button")
+                            ) {
+                                if (state.isPreparingGuide) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(18.dp),
+                                        strokeWidth = 2.dp
+                                    )
+                                    Spacer(Modifier.size(8.dp))
+                                    Text("Generating backwards audio...")
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.VolumeUp,
+                                        contentDescription = "Hear word backwards",
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(Modifier.size(8.dp))
+                                    Text(
+                                        text = when {
+                                            state.isPlayingGuide -> "Playing Backwards Guide..."
+                                            state.guideUnavailable -> "Retry Backwards Guide"
+                                            else -> "Hear Word Backwards"
+                                        }
+                                    )
+                                }
+                            }
+                            if (state.guideUnavailable) {
+                                Text(
+                                    text = "On-device voice guide unavailable — try saying it backwards yourself!",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
                         }
                     }
 
+                    val displayedAmps = if (state.isPlayingGuide && state.guideAmplitudes.isNotEmpty()) {
+                        state.guideAmplitudes
+                    } else {
+                        state.amplitudes
+                    }
                     WaveformVisualizer(
-                        amplitudes = state.amplitudes,
+                        amplitudes = displayedAmps,
                         height = 72.dp,
-                        isActive = state.isRecording || state.isPlayingPreview,
-                        playheadProgress = if (state.isPlayingPreview) state.playbackProgress else 0f
+                        isActive = state.isRecording || state.isPlayingPreview || state.isPlayingGuide,
+                        playheadProgress = if (state.isPlayingPreview || state.isPlayingGuide) state.playbackProgress else 0f
                     )
 
                     // Soft Pastel Mic Button with 3s Countdown Ring
@@ -297,13 +345,15 @@ fun RecordScreen(
 
                     Text(
                         text = when {
-                            state.isRecording -> String.format("%.1fs left • Recording", remainingSeconds)
-                            state.isPlayingPreview -> "Playing reversed preview..."
-                            hasRecorded -> "Audio flipped! Review or pass to ${state.guesserLabel}"
-                            else -> "Tap mic to record (3.0s max)"
+                            state.isRecording -> String.format("%.1fs left • Mimic it now!", remainingSeconds)
+                            state.isPlayingPreview -> "Playing your voice flipped forward..."
+                            state.isPlayingGuide -> "Listen carefully, then mimic this sound!"
+                            hasRecorded -> "Flipped forward! Listen or pass to ${state.guesserLabel}"
+                            else -> "Tap mic & say the backwards sound (3.0s max)"
                         },
                         style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onBackground
+                        color = MaterialTheme.colorScheme.onBackground,
+                        textAlign = TextAlign.Center
                     )
 
                     if (permissionDenied) {
@@ -357,11 +407,11 @@ fun RecordScreen(
                                 ) {
                                     Icon(
                                         imageVector = Icons.AutoMirrored.Filled.VolumeUp,
-                                        contentDescription = "Replay reversed audio",
+                                        contentDescription = "Play flipped recording",
                                         modifier = Modifier.size(18.dp)
                                     )
                                     Spacer(Modifier.size(6.dp))
-                                    Text("Replay")
+                                    Text("Play Flipped")
                                 }
                             }
 
@@ -459,7 +509,7 @@ fun PassDeviceScreen(
                             textAlign = TextAlign.Center
                         )
                         Text(
-                            text = "${state.recordedRoundsCount} backwards ${if (state.recordedRoundsCount == 1) "word is" else "words are"} ready to guess.",
+                            text = "${state.recordedRoundsCount} flipped ${if (state.recordedRoundsCount == 1) "mimic is" else "mimics are"} ready to guess!",
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center

@@ -1,6 +1,6 @@
 <resources>
     <string name="app_name">BackTalk</string>
-    <string name="tagline">Say it. Flip it. Guess it.</string>
+    <string name="tagline">Hear it backwards. Mimic it. Guess it!</string>
     <string name="action_new_game">New Game</string>
     <string name="action_word_packs">Word Packs</string>
     <string name="action_daily_challenge">Daily Challenge</string>

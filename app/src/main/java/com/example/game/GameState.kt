@@ -16,6 +16,11 @@ sealed class GameState {
         val word: String,
         val packId: Long,
         val packName: String,
+        val isPreparingGuide: Boolean = false,
+        val guideReversedPcm: ShortArray? = null,
+        val guideAmplitudes: List<Float> = emptyList(),
+        val isPlayingGuide: Boolean = false,
+        val guideUnavailable: Boolean = false,
         val isRecording: Boolean = false,
         val elapsedMs: Long = 0L,
         val amplitudes: List<Float> = emptyList(),
@@ -62,6 +67,8 @@ sealed class GameState {
         val usedGeminiNano: Boolean,
         val isPlayingReversed: Boolean = false,
         val isPlayingOriginal: Boolean = false,
+        val isPlayingGuide: Boolean = false,
+        val hasGuideAudio: Boolean = false,
         val playbackProgress: Float = 0f,
         val amplitudes: List<Float> = emptyList(),
         val isDailyChallenge: Boolean = false,
@@ -86,6 +93,7 @@ data class RecordedRoundClip(
     val packId: Long,
     val originalPcm: ShortArray,
     val reversedPcm: ShortArray,
+    val guideReversedPcm: ShortArray? = null,
     val reversedAudioPath: String,
     val amplitudes: List<Float>
 )

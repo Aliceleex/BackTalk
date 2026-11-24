@@ -112,7 +112,7 @@ fun GuessScreen(
                     verticalArrangement = Arrangement.spacedBy(20.dp)
                 ) {
                     Text(
-                        text = "Listen to the reversed word",
+                        text = "Guess the hidden word!",
                         style = MaterialTheme.typography.headlineMedium,
                         color = MaterialTheme.colorScheme.onBackground,
                         textAlign = TextAlign.Center
@@ -139,7 +139,7 @@ fun GuessScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "Backwards Clip",
+                                    text = "Flipped Voice Clip",
                                     style = MaterialTheme.typography.titleMedium,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
@@ -182,7 +182,7 @@ fun GuessScreen(
                                 Text(
                                     text = when {
                                         state.isPlayingAudio -> "Playing..."
-                                        state.replaysRemaining > 0 -> "Play Reversed"
+                                        state.replaysRemaining > 0 -> "Play Flipped Clip"
                                         else -> "No Plays Left"
                                     },
                                     style = MaterialTheme.typography.titleMedium,

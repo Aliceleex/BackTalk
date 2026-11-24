@@ -111,10 +111,12 @@ class BackTalkFlowRobolectricTest {
                             word = "pizza",
                             packId = 1L,
                             packName = "Food",
+                            guideReversedPcm = shortArrayOf(9, 8, 7),
                             recordedPcm = shortArrayOf(1, 2, 3),
                             reversedPcm = shortArrayOf(3, 2, 1),
                             amplitudes = listOf(0.2f, 0.8f, 0.4f)
                         ),
+                        onPlayBackwardsGuide = {},
                         onStartRecording = {},
                         onStopRecordingEarly = {},
                         onReplayReversedPreview = {},
@@ -163,6 +165,7 @@ class BackTalkFlowRobolectricTest {
         composeRule.waitForIdle()
 
         composeRule.onNodeWithText("pizza").assertIsDisplayed()
+        composeRule.onNodeWithTag("hear_backwards_button").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithTag("rerecord_button").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithTag("pass_to_friend_button").performScrollTo().assertIsDisplayed().performClick()
         composeRule.waitForIdle()

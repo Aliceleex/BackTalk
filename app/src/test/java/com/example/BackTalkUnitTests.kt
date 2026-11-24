@@ -1,5 +1,6 @@
 package com.example
 
+import com.example.audio.WavPcmParser
 import com.example.audio.extractWaveformAmplitudes
 import com.example.audio.reverseAudio
 import com.example.game.PackDifficulty
@@ -12,6 +13,8 @@ import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.time.LocalDate
 
 class BackTalkUnitTests {
@@ -90,5 +93,36 @@ class BackTalkUnitTests {
             WordRepository.dailyWordForDate(day),
             WordRepository.dailyWordForDate(day)
         )
+    }
+
+    @Test
+    fun `wav parser decodes mono 16bit PCM resamples to 44100Hz and reverses for backwards guide`() {
+        val sampleRate = 22050
+        val samples = shortArrayOf(1000, 2000, 4000, 8000)
+        val dataBytes = samples.size * 2
+        val wav = ByteBuffer.allocate(44 + dataBytes).order(ByteOrder.LITTLE_ENDIAN).apply {
+            put("RIFF".toByteArray(Charsets.US_ASCII))
+            putInt(36 + dataBytes)
+            put("WAVE".toByteArray(Charsets.US_ASCII))
+            put("fmt ".toByteArray(Charsets.US_ASCII))
+            putInt(16) // PCM fmt chunk size
+            putShort(1) // PCM format
+            putShort(1) // mono
+            putInt(sampleRate)
+            putInt(sampleRate * 2)
+            putShort(2)
+            putShort(16)
+            put("data".toByteArray(Charsets.US_ASCII))
+            putInt(dataBytes)
+            samples.forEach { putShort(it) }
+        }.array()
+
+        val forward44k = WavPcmParser.parseWavToMono44kPcm(wav, targetSampleRate = 44100)
+        // 4 samples at 22050Hz -> 8 samples at 44100Hz
+        assertEquals(8, forward44k.size)
+        val reversed44k = reverseAudio(forward44k)
+        assertEquals(8, reversed44k.size)
+        // Reversing puts the high-amplitude tail first
+        assertTrue(reversed44k.first() > reversed44k.last())
     }
 }

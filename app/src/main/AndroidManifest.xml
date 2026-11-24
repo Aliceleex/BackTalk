@@ -7,6 +7,13 @@
     <!-- Optional for future leaderboard sync; app runs completely offline -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Required on Android 11+ (API 30+) to bind to the system TextToSpeech engine -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
